@@ -1,0 +1,29 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Activity {
+  id               String   @id @default(cuid())
+  date             DateTime
+  startTime        String?
+  endTime          String?
+  durationMinutes  Int?
+  title            String
+  description      String?
+  area             String?
+  activityType     String?
+  importance       Int?
+  impact           Int?
+  returns          String?  // Armazenaremos um JSON stringificado ou CSV
+  energyBefore     String?
+  energyAfter      String?
+  status           String   @default("Concluída")
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
