@@ -6,13 +6,24 @@ import styles from "./page.module.css";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
+
+  const startOfToday = new Date(
+    Date.UTC(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    )
+  );
+
+  const startOfTomorrow = new Date(startOfToday);
+  startOfTomorrow.setUTCDate(startOfTomorrow.getUTCDate() + 1);
 
   const activities = await prisma.activity.findMany({
     where: {
       date: {
-        gte: today,
+        gte: startOfToday,
+        lt: startOfTomorrow,
       },
     },
     orderBy: {
@@ -87,7 +98,7 @@ export default async function Home() {
             <p style={{ color: 'var(--muted-foreground)' }}>Sem dados para o gráfico de áreas.</p>
           </div>
         )}
-        
+
         {impactChartData.length > 0 ? (
           <ImpactChart data={impactChartData} />
         ) : (
@@ -112,7 +123,7 @@ export default async function Home() {
                   </span>
                 </div>
                 {activity.description && <p style={{ color: 'var(--muted-foreground)', fontSize: '0.9rem' }}>{activity.description}</p>}
-                
+
                 <div className={styles.badges}>
                   {activity.area && <span className={`${styles.badge} ${styles.badgeArea}`}>{activity.area}</span>}
                   {activity.impact && <span className={`${styles.badge} ${styles.badgeImpact}`}>Impacto: {activity.impact}</span>}
