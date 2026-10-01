@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { AreaChart, ImpactChart } from "@/components/Charts";
+import { AreaChart, SimpleBarChart } from "@/components/Charts";
 import styles from "../page.module.css";
 import { Calendar } from "lucide-react";
 
@@ -73,6 +73,80 @@ export default async function Semana() {
     lowImpactLongDuration > 0 ? `Você teve ${lowImpactLongDuration} atividades com duração superior a 60 minutos e impacto igual ou inferior a 2.` : ""
   ].filter(i => i !== "");
 
+  // Daily evolution
+  const daysOfWeek = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+  const dailyMinutes = [0, 0, 0, 0, 0, 0, 0];
+  const dailyHighImpact = [0, 0, 0, 0, 0, 0, 0];
+  
+  activities.forEach(a => {
+    let dayIndex = a.date.getDay() - 1;
+    if (dayIndex === -1) dayIndex = 6;
+    
+    dailyMinutes[dayIndex] += a.durationMinutes || 0;
+    if ((a.impact || 0) >= 4) {
+      dailyHighImpact[dayIndex] += 1;
+    }
+  });
+
+  const dailyEvolutionData = daysOfWeek.map((name, i) => ({ name, minutos: dailyMinutes[i] }));
+  const dailyHighImpactData = daysOfWeek.map((name, i) => ({ name, quantidade: dailyHighImpact[i] }));
+
+  // Energy
+  const energyCount = { Alta: 0, Média: 0, Baixa: 0 };
+  const energyImpactSum = { Alta: 0, Média: 0, Baixa: 0 };
+  const energyImpactCount = { Alta: 0, Média: 0, Baixa: 0 };
+  
+  activities.forEach(a => {
+    if (a.energyBefore) {
+      const e = a.energyBefore as 'Alta' | 'Média' | 'Baixa';
+      if (energyCount[e] !== undefined) {
+        energyCount[e] += 1;
+        if (a.impact) {
+          energyImpactSum[e] += a.impact;
+          energyImpactCount[e] += 1;
+        }
+      }
+    }
+  });
+
+  const energyInsights = [];
+  if (energyCount['Baixa'] > 0) energyInsights.push(`Você registrou ${energyCount['Baixa']} atividades iniciadas com energia baixa.`);
+  if (energyCount['Alta'] > 0) energyInsights.push(`Você registrou ${energyCount['Alta']} atividades iniciadas com energia alta.`);
+  if (energyImpactCount['Alta'] > 0) energyInsights.push(`Atividades iniciadas com energia alta tiveram impacto médio de ${(energyImpactSum['Alta'] / energyImpactCount['Alta']).toFixed(1)}.`);
+  if (energyImpactCount['Baixa'] > 0) energyInsights.push(`Atividades iniciadas com energia baixa tiveram impacto médio de ${(energyImpactSum['Baixa'] / energyImpactCount['Baixa']).toFixed(1)}.`);
+
+  // Period analysis
+  const periodMinutes = { 'Manhã (06-12)': 0, 'Tarde (12-18)': 0, 'Noite (18-24)': 0 };
+  const periodImpactSum = { 'Manhã (06-12)': 0, 'Tarde (12-18)': 0, 'Noite (18-24)': 0 };
+  const periodImpactCount = { 'Manhã (06-12)': 0, 'Tarde (12-18)': 0, 'Noite (18-24)': 0 };
+
+  activities.forEach(a => {
+    if (a.startTime) {
+      const hour = parseInt(a.startTime.split(':')[0]);
+      let period = '';
+      if (hour >= 6 && hour < 12) period = 'Manhã (06-12)';
+      else if (hour >= 12 && hour < 18) period = 'Tarde (12-18)';
+      else if (hour >= 18) period = 'Noite (18-24)';
+
+      if (period) {
+        periodMinutes[period as keyof typeof periodMinutes] += a.durationMinutes || 0;
+        if (a.impact) {
+          periodImpactSum[period as keyof typeof periodImpactSum] += a.impact;
+          periodImpactCount[period as keyof typeof periodImpactCount] += 1;
+        }
+      }
+    }
+  });
+
+  const periodData = ['Manhã (06-12)', 'Tarde (12-18)', 'Noite (18-24)'].map(p => ({
+    name: p,
+    minutos: periodMinutes[p as keyof typeof periodMinutes],
+    impactoMedio: periodImpactCount[p as keyof typeof periodImpactCount] > 0 
+      ? Number((periodImpactSum[p as keyof typeof periodImpactSum] / periodImpactCount[p as keyof typeof periodImpactCount]).toFixed(1)) 
+      : 0
+  }));
+
+
   return (
     <div>
       <header className={styles.header}>
@@ -114,10 +188,52 @@ export default async function Semana() {
           <span className={styles.metricLabel}>Alto Impacto (≥ 4)</span>
           <span className={styles.metricValue}>{highImpactCount}</span>
         </div>
+        <div className={styles.metricCard}>
+          <span className={styles.metricLabel}>Carreira</span>
+          <span className={styles.metricValue}>{((areaMap['Carreira'] || 0) / 60).toFixed(1)}h</span>
+        </div>
+        <div className={styles.metricCard}>
+          <span className={styles.metricLabel}>Renda</span>
+          <span className={styles.metricValue}>{((areaMap['Renda'] || 0) / 60).toFixed(1)}h</span>
+        </div>
+        <div className={styles.metricCard}>
+          <span className={styles.metricLabel}>Projetos</span>
+          <span className={styles.metricValue}>{((areaMap['Projetos'] || 0) / 60).toFixed(1)}h</span>
+        </div>
+        <div className={styles.metricCard}>
+          <span className={styles.metricLabel}>Casa</span>
+          <span className={styles.metricValue}>{((areaMap['Casa'] || 0) / 60).toFixed(1)}h</span>
+        </div>
       </div>
 
-      <div className={styles.chartsGrid} style={{ gridTemplateColumns: '1fr' }}>
+      <div className={styles.chartsGrid} style={{ marginTop: '2rem' }}>
         <AreaChart data={areaChartData} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%' }}>
+          <div className={styles.chartCard} style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)', flex: 1 }}>
+            <h3 className={styles.chartTitle} style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              ⚡ Análise de Energia
+            </h3>
+            <ul style={{ listStylePosition: 'inside', color: 'var(--foreground)', display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.9rem' }}>
+              {energyInsights.length > 0 ? (
+                energyInsights.map((insight, idx) => (
+                  <li key={idx} style={{ lineHeight: 1.5 }}>{insight}</li>
+                ))
+              ) : (
+                <li>Registre a energia antes das atividades para ver insights.</li>
+              )}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.chartsGrid} style={{ marginTop: '2rem' }}>
+        <SimpleBarChart data={dailyEvolutionData} title="Evolução Diária (Tempo)" dataKey="minutos" fill="#3b82f6" yAxisUnit="min" />
+        <SimpleBarChart data={dailyHighImpactData} title="Atividades de Alto Impacto por Dia" dataKey="quantidade" fill="#f59e0b" />
+      </div>
+
+      <div className={styles.chartsGrid} style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+        <SimpleBarChart data={periodData} title="Tempo por Período do Dia" dataKey="minutos" fill="#8b5cf6" yAxisUnit="min" />
+        <SimpleBarChart data={periodData} title="Impacto Médio por Período" dataKey="impactoMedio" fill="#10b981" />
       </div>
 
       <div>

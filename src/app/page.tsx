@@ -39,6 +39,7 @@ export default async function Home() {
     .filter(a => a.durationMinutes && a.impact)
     .map(a => ({
       name: a.title,
+      area: a.area,
       x: a.durationMinutes,
       y: a.impact,
       z: 100 // tamanho base da bolha
@@ -63,6 +64,18 @@ export default async function Home() {
         <div className={styles.metricCard}>
           <span className={styles.metricLabel}>Alto Impacto (≥ 4)</span>
           <span className={styles.metricValue}>{highImpactCount}</span>
+        </div>
+        <div className={styles.metricCard}>
+          <span className={styles.metricLabel}>Carreira</span>
+          <span className={styles.metricValue}>{((areaMap['Carreira'] || 0) / 60).toFixed(1)}h</span>
+        </div>
+        <div className={styles.metricCard}>
+          <span className={styles.metricLabel}>Renda</span>
+          <span className={styles.metricValue}>{((areaMap['Renda'] || 0) / 60).toFixed(1)}h</span>
+        </div>
+        <div className={styles.metricCard}>
+          <span className={styles.metricLabel}>Projetos</span>
+          <span className={styles.metricValue}>{((areaMap['Projetos'] || 0) / 60).toFixed(1)}h</span>
         </div>
       </div>
 

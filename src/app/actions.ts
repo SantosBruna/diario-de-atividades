@@ -94,3 +94,42 @@ export async function deleteActivity(id: string) {
     return { error: error.message };
   }
 }
+
+export async function updateActivity(id: string, data: any) {
+  try {
+    let date = new Date();
+    if (data.date) {
+        date = new Date(data.date);
+    }
+    
+    await prisma.activity.update({
+      where: { id },
+      data: {
+        ...data,
+        date: date,
+        returns: data.returns ? JSON.stringify(data.returns) : null
+      }
+    });
+    
+    revalidatePath("/");
+    revalidatePath("/semana");
+    revalidatePath("/dados");
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Update error:", error);
+    return { error: error.message };
+  }
+}
+
+export async function getActivity(id: string) {
+  try {
+    const activity = await prisma.activity.findUnique({
+      where: { id }
+    });
+    return { data: activity };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+

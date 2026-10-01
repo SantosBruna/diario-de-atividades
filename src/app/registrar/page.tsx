@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { Sparkles, Play, Square, Save, Loader2 } from "lucide-react";
-import { parseActivityWithAI, saveActivity } from "../actions";
+import { parseActivityWithAI, saveActivity, getActivity, updateActivity } from "../actions";
 import styles from "./page.module.css";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const AREAS = ['Carreira', 'Renda', 'Projetos', 'Estudos', 'Casa', 'Vida pessoal', 'Administrativo', 'Lazer'];
 const TYPES = ['Concentração', 'Criativa', 'Operacional', 'Administrativa', 'Física', 'Social', 'Descanso'];
 const RETURNS = ['Renda imediata', 'Renda futura', 'Carreira', 'Projeto pessoal', 'Conhecimento', 'Manutenção', 'Bem-estar', 'Lazer'];
 
-export default function Registrar() {
+function RegistrarForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const id = searchParams.get('id');
   const [aiText, setAiText] = useState("");
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -39,6 +41,37 @@ export default function Registrar() {
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsLoadingAI(true);
+      getActivity(id).then(res => {
+        setIsLoadingAI(false);
+        if (res.data) {
+          const d = res.data;
+          setFormData({
+            title: d.title || "",
+            description: d.description || "",
+            area: d.area || "",
+            activityType: d.activityType || "",
+            date: d.date ? new Date(d.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+            startTime: d.startTime || "",
+            endTime: d.endTime || "",
+            durationMinutes: d.durationMinutes?.toString() || "",
+            importance: d.importance?.toString() || "",
+            impact: d.impact?.toString() || "",
+            returns: d.returns ? JSON.parse(d.returns) : [],
+            energyBefore: d.energyBefore || "",
+            energyAfter: d.energyAfter || "",
+            status: d.status || "Concluída",
+            notes: d.notes || ""
+          });
+          setShowForm(true);
+        }
+      });
+    }
+  }, [id]);
 
   useEffect(() => {
     if (timerRunning) {
@@ -130,13 +163,13 @@ export default function Registrar() {
       date: new Date(formData.date)
     };
 
-    const res = await saveActivity(dataToSave);
+    const res = id ? await updateActivity(id, dataToSave) : await saveActivity(dataToSave);
     setIsSaving(false);
 
     if (res.error) {
       alert(res.error);
     } else {
-      router.push("/");
+      router.push(id ? "/dados" : "/");
     }
   };
 
@@ -152,9 +185,9 @@ export default function Registrar() {
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.title}>Registrar Atividade</h1>
+      <h1 className={styles.title}>{id ? "Editar Atividade" : "Registrar Atividade"}</h1>
 
-      {!showForm && (
+      {!showForm && !id && (
         <div className={styles.timerSection}>
           <div>
             <span className={styles.label}>Modo Cronômetro</span>
@@ -174,7 +207,7 @@ export default function Registrar() {
         </div>
       )}
 
-      {!showForm && !timerRunning && (
+      {!showForm && !timerRunning && !id && (
         <div className={styles.aiSection}>
           <label className={styles.label}>O que você fez?</label>
           <textarea 
@@ -318,5 +351,13 @@ export default function Registrar() {
         </form>
       )}
     </div>
+  );
+}
+
+export default function Registrar() {
+  return (
+    <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>Carregando...</div>}>
+      <RegistrarForm />
+    </Suspense>
   );
 }
